@@ -90,6 +90,7 @@ from lean.container import container
 
 def main() -> None:
     """This function is the entrypoint when running a Lean command in a terminal."""
+    print("*****************************************KLK BUILD******************************************************")
     try:
         lean.main(standalone_mode=False)
 

@@ -72,7 +72,7 @@ def _s3_push_single_project(bucket: str, project: Path, profile: Optional[str], 
     command = " ".join(command_parts)
     logger.info(command)
     cp = subprocess.run(command, shell=True)
-    logger.info(f"subprocess returncode={cp.returncode}")
+    cp.check_returncode()
 
     project_manager = container.project_manager
     libraries = project_manager.get_project_libraries(project)

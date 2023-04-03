@@ -38,7 +38,6 @@ def s3_push(bucket: str, project: Optional[Path], profile: Optional[str], dryrun
 
     This command will delete cloud files which don't have a local counterpart.
     """
-    logger = container.logger
     # Parse which projects need to be pushed
     if project is not None:
         project_config_manager = container.project_config_manager
@@ -46,28 +45,36 @@ def s3_push(bucket: str, project: Optional[Path], profile: Optional[str], dryrun
         if not project_config.file.exists():
             raise RuntimeError(f"'{project}' is not a Lean project")
 
-        path_manager = container.path_manager
-        relative_path = path_manager.get_relative_path(project)
-
-        command_parts = [
-            f"docker run --rm -it -v {Path.home()}/.aws:/root/.aws -v {Path.cwd()}:/workspace",
-            f"amazon/aws-cli s3 sync /workspace/{relative_path.as_posix()} s3://{bucket}/{relative_path.as_posix()}",
-            "--delete",
-            "--dryrun" if dryrun else "",
-            f"--profile {profile}" if profile is not None else ""
-        ] + [
-            f"--exclude {pattern}" for pattern in [
-                "backtests/*", "__pycache__/*", "config.json", "bin/*", "obj/*", ".ipynb_checkpoints/*", ".idea/*",
-                ".vscode/*"
-            ]
-        ]
-        command = " ".join(command_parts)
-        logger.info(command)
-        cp = subprocess.run(command, shell=True)
-        logger.info(f"subprocess returncode={cp.returncode}")
-
-        # TODO: Libraries
+        _s3_push_single_project(bucket, project, profile, dryrun)
     else:
         projects_to_push = [p.parent for p in Path.cwd().rglob(PROJECT_CONFIG_FILE_NAME)]
         for project in projects_to_push:
-            s3_push(bucket, project, profile)
+            _s3_push_single_project(bucket, project, profile, dryrun)
+
+def _s3_push_single_project(bucket: str, project: Path, profile: Optional[str], dryrun: bool) -> None:
+    logger = container.logger
+
+    path_manager = container.path_manager
+    relative_path = path_manager.get_relative_path(project)
+
+    command_parts = [
+        f"docker run --rm -it -v {Path.home()}/.aws:/root/.aws -v {Path.cwd()}:/workspace",
+        f"amazon/aws-cli s3 sync /workspace/{relative_path.as_posix()} s3://{bucket}/{relative_path.as_posix()}",
+        "--delete",
+        "--dryrun" if dryrun else "",
+        f"--profile {profile}" if profile is not None else ""
+    ] + [
+        f"--exclude {pattern}" for pattern in [
+            "backtests/*", "__pycache__/*", "config.json", "bin/*", "obj/*", ".ipynb_checkpoints/*", ".idea/*",
+            ".vscode/*", "storage/*"
+        ]
+    ]
+    command = " ".join(command_parts)
+    logger.info(command)
+    cp = subprocess.run(command, shell=True)
+    logger.info(f"subprocess returncode={cp.returncode}")
+
+    project_manager = container.project_manager
+    libraries = project_manager.get_project_libraries(project)
+    for library in libraries:
+        _s3_push_single_project(bucket, library, profile, dryrun)

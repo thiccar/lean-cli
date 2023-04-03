@@ -58,7 +58,7 @@ def _s3_push_single_project(bucket: str, project: Path, profile: Optional[str], 
     relative_path = path_manager.get_relative_path(project)
 
     command_parts = [
-        f"docker run --rm -it -v {Path.home()}/.aws:/root/.aws -v {Path.cwd()}:/workspace",
+        f"docker run --rm -v {Path.home()}/.aws:/root/.aws -v {Path.cwd()}:/workspace",
         f"amazon/aws-cli s3 sync /workspace/{relative_path.as_posix()} s3://{bucket}/{relative_path.as_posix()}",
         "--delete",
         "--dryrun" if dryrun else "",
